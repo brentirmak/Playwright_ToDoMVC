@@ -1,6 +1,16 @@
 import pytest
 import time
 from db import MySQLLogger
+from dotenv import load_dotenv
+import os
+
+# 1. Load the environment variables from the .env file
+load_dotenv()
+
+# 2. Retrieve the secrets using os.getenv()
+webdriver_remote_url = os.getenv("MYSQL_URL")
+webdriver_username = os.getenv("MYSQL_USERNAME")
+webdriver_password = os.getenv("MYSQL_PASSWORD")
 
 @pytest.fixture(scope="class")
 def browser_context(browser):
@@ -22,9 +32,9 @@ def slow_every_test():
 @pytest.fixture(scope="session")
 def db_logger():
     logger = MySQLLogger(
-        host="192.168.239.1",
-        user="selenium",
-        password="Selenium#123#",
+        host=webdriver_remote_url,
+        user=webdriver_username,
+        password=webdriver_password,
         database="playwright"
     )
     yield logger
