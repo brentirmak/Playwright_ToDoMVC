@@ -1,3 +1,6 @@
+.env
+.env.local
+.env.production
 __pycache__/
 .idea/
 .venv/
