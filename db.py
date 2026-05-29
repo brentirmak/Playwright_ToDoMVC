@@ -1,3 +1,5 @@
+import datetime
+
 import mysql.connector
 
 class MySQLLogger:
@@ -12,10 +14,10 @@ class MySQLLogger:
 
     def log_result(self, test_name, status, duration, error_message=None):
         query = """
-            INSERT INTO playwright_test_run_results (test_name, status, duration, error_message)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO playwright_test_run_results (test_name, status, duration, error_message, executed_at)
+            VALUES (%s, %s, %s, %s, %s)
         """
-        self.cursor.execute(query, (test_name, status, duration, error_message))
+        self.cursor.execute(query, (test_name, status, duration, error_message,datetime.datetime.now()))
         self.conn.commit()
 
     def close(self):
