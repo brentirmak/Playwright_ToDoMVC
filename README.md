@@ -1,5 +1,5 @@
-# ToDoMVC
-1) This repo is for the ToDoMVC Playwright + Pytest Demo <br>
+(6/4) Background
+1) This repo is for the Playwright ToDoMVC + Pytest Demo <br>
 2) Utilizes pytest to test https://todomvc.com/examples/react/dist/ <br>
 3) Uses the shared_page fixture to maintain session/state in a single browser<br>
 4) Stores test results into MySQL DB<br>
