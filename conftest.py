@@ -1,6 +1,6 @@
 import pytest
 import time
-from db import MySQLLogger
+from utils.db import MySQLLogger
 from dotenv import load_dotenv
 import os
 
@@ -53,3 +53,8 @@ def pytest_runtest_makereport(item, call):
         error_message = str(call.excinfo.value) if call.excinfo else None
 
         db_logger.log_result(test_name, status, duration, error_message)
+
+def pytest_runtest_setup(item):
+    if getattr(item.session, "_todo_flow_failed", False):
+        if "TestToDoMVCFlow" in item.nodeid:
+            pytest.skip("Skipping: earlier step in flow failed")
