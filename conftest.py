@@ -7,28 +7,47 @@ from dotenv import load_dotenv
 from utils.db import MySQLLogger
 
 
-# ---------------------------------------------------------------------------
-# Environment configuration
-# ---------------------------------------------------------------------------
+###############################################################################
+# LOAD ENVIRONMENT VARIABLES
+###############################################################################
 
 load_dotenv()
 
-mysql_url = os.getenv("MYSQL_URL")
-mysql_username = os.getenv("MYSQL_USERNAME")
-mysql_password = os.getenv("MYSQL_PASSWORD")
+
+###############################################################################
+# MYSQL CONFIGURATION
+###############################################################################
+
+webdriver_remote_url = os.getenv("MYSQL_URL")
+webdriver_username = os.getenv("MYSQL_USERNAME")
+webdriver_password = os.getenv("MYSQL_PASSWORD")
 
 
-# ---------------------------------------------------------------------------
-# Playwright fixtures
-# ---------------------------------------------------------------------------
+###############################################################################
+# BROWSER TYPE
+#
+# This is supplied by Jenkins:
+#
+#   BROWSER_TYPE=Chrome
+#   BROWSER_TYPE=Firefox
+#   BROWSER_TYPE=Edge
+#
+###############################################################################
+
+def get_browser_type():
+
+    browser_type = os.getenv("BROWSER_TYPE", "Unknown")
+
+    return browser_type
+
+
+###############################################################################
+# BROWSER CONTEXT
+###############################################################################
 
 @pytest.fixture(scope="class")
 def browser_context(browser):
-    """
-    Create one browser context for the entire test class.
 
-    All tests in TestToDoMVCFlow therefore share the same browser context.
-    """
     context = browser.new_context()
 
     yield context
@@ -36,17 +55,13 @@ def browser_context(browser):
     context.close()
 
 
+###############################################################################
+# SHARED PAGE
+###############################################################################
+
 @pytest.fixture(scope="class")
 def shared_page(browser_context):
-    """
-    Create one Playwright page for the entire test class.
 
-    This is intentional because the TodoMVC tests form a sequential flow:
-
-        test_01 -> test_02 -> test_03 -> ... -> test_08
-
-    Each test builds on the state created by the previous test.
-    """
     page = browser_context.new_page()
 
     yield page
@@ -54,36 +69,30 @@ def shared_page(browser_context):
     page.close()
 
 
-# ---------------------------------------------------------------------------
-# Test pacing
-# ---------------------------------------------------------------------------
+###############################################################################
+# SLOW TEST FIXTURE
+###############################################################################
 
 @pytest.fixture(autouse=True)
 def slow_every_test():
-    """
-    Add a short delay after every test.
 
-    This can make local execution easier to observe and debug.
-    """
     yield
 
     time.sleep(1)
 
 
-# ---------------------------------------------------------------------------
-# MySQL logging
-# ---------------------------------------------------------------------------
+###############################################################################
+# MYSQL LOGGER
+###############################################################################
 
 @pytest.fixture(scope="session")
 def db_logger():
-    """
-    Create one MySQL logger for the entire pytest session.
-    """
+
     logger = MySQLLogger(
-        host=mysql_url,
-        user=mysql_username,
-        password=mysql_password,
-        database="playwright",
+        host=webdriver_remote_url,
+        user=webdriver_username,
+        password=webdriver_password,
+        database="playwright"
     )
 
     yield logger
@@ -91,29 +100,48 @@ def db_logger():
     logger.close()
 
 
-# ---------------------------------------------------------------------------
-# Test result logging
-# ---------------------------------------------------------------------------
+###############################################################################
+# PYTEST RESULT HOOK
+###############################################################################
 
 def pytest_runtest_makereport(item, call):
-    """
-    Log the result of each test execution to MySQL.
 
-    Only the actual test-call phase is logged.
-    Fixture setup/teardown is not logged as a separate test result.
+    """
+    Runs after each pytest test phase.
+
+    Results are stored in MySQL with:
+
+        test_name
+        browser_type
+        status
+        duration
+        error_message
+        executed_at
     """
 
     if call.when != "call":
         return
+
 
     db_logger = item.funcargs.get("db_logger")
 
     if not db_logger:
         return
 
+
+    ###########################################################################
+    # TEST INFORMATION
+    ###########################################################################
+
     test_name = item.name
 
-    status = "passed" if call.excinfo is None else "failed"
+    browser_type = get_browser_type()
+
+    status = (
+        "passed"
+        if call.excinfo is None
+        else "failed"
+    )
 
     duration = call.stop - call.start
 
@@ -123,39 +151,30 @@ def pytest_runtest_makereport(item, call):
         else None
     )
 
+
+    ###########################################################################
+    # LOG RESULT
+    ###########################################################################
+
     db_logger.log_result(
         test_name=test_name,
+        browser_type=browser_type,
         status=status,
         duration=duration,
-        error_message=error_message,
+        error_message=error_message
     )
 
-    # -----------------------------------------------------------------------
-    # Mark the sequential TodoMVC flow as failed.
-    #
-    # If one test fails, subsequent tests in TestToDoMVCFlow will be skipped.
-    # -----------------------------------------------------------------------
 
-    if call.excinfo is not None:
-        if "TestToDoMVCFlow" in item.nodeid:
-            item.session._todo_flow_failed = True
-
-
-# ---------------------------------------------------------------------------
-# Sequential TodoMVC flow handling
-# ---------------------------------------------------------------------------
+###############################################################################
+# FLOW FAILURE HANDLING
+###############################################################################
 
 def pytest_runtest_setup(item):
-    """
-    Stop the sequential TodoMVC flow after the first failure.
-
-    Because all tests share the same Playwright page, continuing after an
-    earlier failure could cause misleading downstream failures.
-    """
 
     if getattr(item.session, "_todo_flow_failed", False):
 
         if "TestToDoMVCFlow" in item.nodeid:
+
             pytest.skip(
-                "Skipping: earlier step in TestToDoMVCFlow failed"
+                "Skipping: earlier step in flow failed"
             )
