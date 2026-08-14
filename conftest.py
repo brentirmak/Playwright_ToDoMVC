@@ -46,33 +46,18 @@ def pytest_addoption(parser):
 
 def get_browser_type(item=None):
     """
-    Determine the logical browser name used for the test.
+    Determine the actual browser being used by Playwright.
 
     Priority:
-
-    1. Jenkins BROWSER_TYPE environment variable
-    2. Local pytest --browser-type option
-    3. Playwright --browser option
-    4. Playwright --browser-channel option
-    5. Unknown
-
-    Examples:
-
-        pytest --browser chromium
-            -> Chrome
-
-        pytest --browser firefox
-            -> Firefox
-
-        pytest --browser chromium --browser-channel msedge
-            -> Edge
-
-        BROWSER_TYPE=Chrome pytest --browser chromium
-            -> Chrome
+        1. Jenkins BROWSER_TYPE environment variable
+        2. Explicit pytest --browser-type option
+        3. Actual Playwright browser fixture
+        4. Playwright browser/channel configuration
+        5. Unknown
     """
 
     # -------------------------------------------------------------------------
-    # 1. Jenkins/environment override
+    # 1. Jenkins override
     # -------------------------------------------------------------------------
 
     env_browser = os.getenv("BROWSER_TYPE")
@@ -82,15 +67,13 @@ def get_browser_type(item=None):
 
 
     # -------------------------------------------------------------------------
-    # 2. Explicit pytest --browser-type option
+    # 2. Explicit --browser-type
     # -------------------------------------------------------------------------
 
     if item is not None:
 
         try:
-            cli_browser_type = item.config.getoption(
-                "--browser-type"
-            )
+            cli_browser_type = item.config.getoption("--browser-type")
 
             if cli_browser_type:
                 return cli_browser_type.strip()
@@ -100,7 +83,55 @@ def get_browser_type(item=None):
 
 
     # -------------------------------------------------------------------------
-    # 3. Detect Playwright browser configuration
+    # 3. Inspect the actual Playwright browser fixture
+    # -------------------------------------------------------------------------
+
+    if item is not None:
+
+        try:
+            browser = item.funcargs.get("browser")
+
+            if browser is not None:
+
+                # Get the actual Playwright browser type.
+                browser_name = browser.browser_type.name
+
+                # Chromium-based browser
+                if browser_name == "chromium":
+
+                    # Check whether this is Microsoft Edge.
+                    launch_args = item.funcargs.get(
+                        "browser_type_launch_args"
+                    )
+
+                    if launch_args:
+
+                        channel = launch_args.get("channel")
+
+                        if channel == "msedge":
+                            return "Edge"
+
+                    return "Chrome"
+
+
+                # Firefox
+                if browser_name == "firefox":
+                    return "Firefox"
+
+
+                # WebKit
+                if browser_name == "webkit":
+                    return "WebKit"
+
+        except Exception as exc:
+            print(
+                f"[WARNING] Could not determine browser from "
+                f"Playwright fixture: {exc}"
+            )
+
+
+    # -------------------------------------------------------------------------
+    # 4. Fall back to pytest command-line options
     # -------------------------------------------------------------------------
 
     if item is not None:
@@ -113,22 +144,17 @@ def get_browser_type(item=None):
                 "--browser-channel"
             )
 
-            # Firefox
             if browser == "firefox":
                 return "Firefox"
 
-            # WebKit
             if browser == "webkit":
                 return "WebKit"
 
-            # Chromium
             if browser == "chromium":
 
-                # Microsoft Edge
                 if browser_channel == "msedge":
                     return "Edge"
 
-                # Standard Chromium configuration
                 return "Chrome"
 
         except Exception:
@@ -136,12 +162,10 @@ def get_browser_type(item=None):
 
 
     # -------------------------------------------------------------------------
-    # 4. Unknown
+    # 5. Nothing could be determined
     # -------------------------------------------------------------------------
 
     return "Unknown"
-
-
 # =============================================================================
 # BROWSER CONTEXT FIXTURE
 # =============================================================================
