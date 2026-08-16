@@ -1,6 +1,6 @@
-(6/8) Background
+(8/15) Background
 1) This repo is for the Playwright ToDoMVC + Pytest Demo <br>
-2) Utilizes pytest to test https://todomvc.com/examples/react/dist/ <br>
+2) Utilizes POM + pytest to test https://todomvc.com/examples/react/dist/ <br>
 3) Uses the shared_page fixture to maintain session/state in a single browser<br>
 4) Stores test results into MySQL DB<br>
 5) Dev Environment is on Windows (Visual Studio Code) <br>
