@@ -1,4 +1,4 @@
-(8/21) Background
+(8/21) Background:
 1) This repo is for the Playwright ToDoMVC + Pytest Demo <br>
 2) Utilizes POM + pytest to test https://todomvc.com/examples/react/dist/ <br>
 3) Uses the shared_page fixture to maintain session/state in a single browser<br>
